@@ -1,11 +1,9 @@
-// Recupera as tarefas do localStorage, se houver
 document.addEventListener("DOMContentLoaded", loadTasks);
 
 const taskInput = document.getElementById("taskInput");
 const addTaskButton = document.getElementById("addTaskButton");
 const taskList = document.getElementById("taskList");
 
-// Adiciona uma tarefa à lista
 addTaskButton.addEventListener("click", addTask);
 taskInput.addEventListener("keypress", function (e) {
   if (e.key === "Enter") {
@@ -17,37 +15,22 @@ function addTask() {
   const taskText = taskInput.value.trim();
 
   if (taskText !== "") {
-    // Cria um novo item da lista
     const li = document.createElement("li");
     li.setAttribute("draggable", "true");
     li.innerHTML = `${taskText} <button class="delete">X</button>`;
 
-    // Adiciona o evento de exclusão
     li.querySelector(".delete").addEventListener("click", () => {
       li.remove();
       saveTasks();
     });
 
-    // Adiciona a tarefa à lista no HTML
     taskList.appendChild(li);
-
-    // Limpa o campo de entrada
     taskInput.value = "";
-
-    // Salva as tarefas no localStorage
     saveTasks();
-
-    // Adiciona a funcionalidade de arrastar
-    li.addEventListener("dragstart", dragStart);
-    li.addEventListener("dragover", dragOver);
-    li.addEventListener("dragenter", dragEnter);
-    li.addEventListener("dragleave", dragLeave);
-    li.addEventListener("drop", drop);
-    li.addEventListener("dragend", dragEnd);
+    addDragAndTouchEvents(li);
   }
 }
 
-// Função para salvar as tarefas no localStorage
 function saveTasks() {
   const tasks = [];
   document.querySelectorAll(".task-list li").forEach((taskItem) => {
@@ -56,67 +39,96 @@ function saveTasks() {
   localStorage.setItem("tasks", JSON.stringify(tasks));
 }
 
-// Função para carregar as tarefas do localStorage
 function loadTasks() {
   const tasks = JSON.parse(localStorage.getItem("tasks"));
-
   if (tasks) {
     tasks.forEach((taskText) => {
       const li = document.createElement("li");
       li.setAttribute("draggable", "true");
       li.innerHTML = `${taskText} <button class="delete">X</button>`;
 
-      // Adiciona o evento de exclusão
       li.querySelector(".delete").addEventListener("click", () => {
         li.remove();
         saveTasks();
       });
 
       taskList.appendChild(li);
-
-      // Adiciona a funcionalidade de arrastar
-      li.addEventListener("dragstart", dragStart);
-      li.addEventListener("dragover", dragOver);
-      li.addEventListener("dragenter", dragEnter);
-      li.addEventListener("dragleave", dragLeave);
-      li.addEventListener("drop", drop);
-      li.addEventListener("dragend", dragEnd);
+      addDragAndTouchEvents(li);
     });
   }
 }
 
-let draggingElement = null;
+function addDragAndTouchEvents(li) {
+  li.addEventListener("dragstart", dragStart);
+  li.addEventListener("dragover", dragOver);
+  li.addEventListener("dragenter", dragEnter);
+  li.addEventListener("dragleave", dragLeave);
+  li.addEventListener("drop", drop);
+  li.addEventListener("dragend", dragEnd);
 
-// Função chamada quando o início do arrasto começa
+  li.addEventListener("touchstart", touchStart, { passive: false });
+  li.addEventListener("touchmove", touchMove, { passive: false });
+  li.addEventListener("touchend", touchEnd);
+}
+
+let draggingElement = null;
+let touchOffsetY = 0;
+
 function dragStart(e) {
   draggingElement = this;
   this.classList.add("dragging");
 }
 
-// Função chamada quando o item está sendo arrastado
 function dragOver(e) {
   e.preventDefault();
 }
 
-// Função chamada quando o item entra na área de outro item
 function dragEnter(e) {
   e.preventDefault();
   this.style.borderTop = "2px dashed #ccc";
 }
 
-// Função chamada quando o item sai da área de outro item
 function dragLeave() {
   this.style.borderTop = "none";
 }
 
-// Função chamada quando o item é solto
 function drop() {
   this.style.borderTop = "none";
   taskList.insertBefore(draggingElement, this);
   saveTasks();
 }
 
-// Função chamada quando o arrasto é finalizado
 function dragEnd() {
   this.classList.remove("dragging");
+}
+
+function touchStart(e) {
+  draggingElement = e.target.closest("li");
+  if (!draggingElement) return;
+  touchOffsetY = e.touches[0].clientY - draggingElement.getBoundingClientRect().top;
+  draggingElement.classList.add("dragging");
+}
+
+function touchMove(e) {
+  if (!draggingElement) return;
+  e.preventDefault();
+  let touchY = e.touches[0].clientY - touchOffsetY;
+  let items = [...taskList.children];
+
+  items.forEach((item) => {
+    if (item !== draggingElement) {
+      let box = item.getBoundingClientRect();
+      let middle = box.top + box.height / 2;
+      if (touchY < middle) {
+        taskList.insertBefore(draggingElement, item);
+      }
+    }
+  });
+}
+
+function touchEnd() {
+  if (draggingElement) {
+    draggingElement.classList.remove("dragging");
+    saveTasks();
+  }
 }
